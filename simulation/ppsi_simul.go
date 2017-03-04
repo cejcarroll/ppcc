@@ -81,7 +81,7 @@ func (jvs *Simulation) Run(config *onet.SimulationConfig) error {
 	case <-done:
 		log.Lvlf1("Finished one round of ppsi")
 		if rh.Status == 0 {
-			fmt.Printf("The intersection was sucessfully decrypted: ")
+			fmt.Printf("The intersection was sucessfully decrypted: \n")
 		}
 		if rh.Status == 1 {
 			fmt.Printf("Illegal intersection")
