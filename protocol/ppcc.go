@@ -2,9 +2,9 @@ package protocol
 
 import (
 	"errors"
-	"fmt"
-	"github.com/hm16083/ppcc/lib"
-    "gopkg.in/dedis/crypto.v0/abstract"
+	//"fmt"
+	//"github.com/hm16083/ppcc/lib"
+    //"gopkg.in/dedis/crypto.v0/abstract"
 	"gopkg.in/dedis/onet.v1"
 	"gopkg.in/dedis/onet.v1/network"
 	"gopkg.in/dedis/onet.v1/log"
