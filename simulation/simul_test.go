@@ -6,5 +6,5 @@ import (
 )
 
 func TestSimulation(t *testing.T) {
-	simul.Start("ppsi.toml")
+	simul.Start("ppcc.toml")
 }
