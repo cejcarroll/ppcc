@@ -71,7 +71,7 @@ type chanDoneMessage struct {
 	DoneMessage
 }
 
-type chanInitiateRequest struct {
+type StructInit struct {
 	*onet.TreeNode
 	Init
 }
@@ -98,4 +98,15 @@ type Reply struct {
 type StructReply struct {
 	*onet.TreeNode
 	Reply
+}
+
+type AuthorityQuery struct {
+    Query   string
+    Telecom int
+    Depth   int
+}
+
+type StructAuthorityQuery struct {
+    *onet.TreeNode
+    AuthorityQuery
 }

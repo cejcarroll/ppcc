@@ -2,11 +2,11 @@ package main
 
 import (
 	//"fmt"
-    "errors"
-    "strconv"
+    //"errors"
+    //"strconv"
 	"github.com/BurntSushi/toml"
 	"github.com/hm16083/ppcc/protocol"
-	//"github.com/hm16083/ppcc/lib"
+	"github.com/hm16083/ppcc/lib"
 	"gopkg.in/dedis/onet.v1"
 	"gopkg.in/dedis/onet.v1/log"
 	//"gopkg.in/dedis/onet.v1/network"
@@ -21,7 +21,7 @@ This is a simple ExampleChannels-protocol with two steps:
 */
 
 func init() {
-	onet.SimulationRegister("ExampleChannels", NewChannelSimulation)
+	onet.SimulationRegister("PPCC", NewChannelSimulation)
 }
 
 // ChannelSimulation implements onet.Simulation.
@@ -51,6 +51,8 @@ func (e *ChannelSimulation) Setup(dir string, hosts []string) (
 	return sc, nil
 }
 
+var initSize int = 5
+
 // Run implements onet.Simulation.
 func (e *ChannelSimulation) Run(config *onet.SimulationConfig) error {
 	size := config.Tree.Size()
@@ -62,13 +64,26 @@ func (e *ChannelSimulation) Run(config *onet.SimulationConfig) error {
 		if err != nil {
 			return err
 		}
+
+        warrant := lib.NewTriple("6083548419", 0, 0)
+        queue := lib.NewQueue(initSize)
+        queue.Push(warrant)
+
+        rh := p.(*protocol.PPCC)
+        rh.Queue = queue
+
 		go p.Start()
-		children := <-p.(*protocol.ProtocolExampleChannels).ChildCount
+		children := <-p.(*protocol.PPCC).ChildCount
+        //finished := <-p.(*protocol.PPCC).ProtocolDone
 		round.Record()
+        //log.Lvl1("Finished: ", finished)
+        log.Lvl1("ChildCount returned:", children)
+        /*
 		if children != size {
 			return errors.New("Didn't get " + strconv.Itoa(size) +
 				" children")
 		}
+        */
 	}
 	return nil
 }
