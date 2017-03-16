@@ -34,6 +34,7 @@ type PPCC struct {
 
     OutstandingPackets      int
 	Queue                   *lib.AgencyQueue
+    CurrentDepth            int
 
     NumTelecoms             int
     Telecoms                []*onet.TreeNode
@@ -143,6 +144,7 @@ func (p *PPCC) handleInit (in *Init) error {
 
     warrant := p.Queue.Pop()
     telecomIdx := warrant.Telecom
+    p.CurrentDepth = warrant.Depth
     if telecomIdx >= p.NumTelecoms {
         return fmt.Errorf("invalid telecom number")
     }
@@ -163,15 +165,25 @@ func (p *PPCC) handleInit (in *Init) error {
 }
 
 func (p *PPCC) handleReply(in *Reply) error {
-    log.Lvl1("In handleReply")
+    log.Lvl1("In HANDLEREPLY")
+    log.Lvl1("Received reply packet with length", len(in.Response))
 
     if !p.IsRoot() {
         return fmt.Errorf("non-root received reply")
     }
 
     p.OutstandingPackets--
+    for _, pair := range in.Response {
+        triple := lib.NewTriple(pair.Node, pair.Telecom, p.CurrentDepth - 1)
+        if p.CurrentDepth > 0 {
+            log.Lvl1("Pushing new triple")
+            p.Queue.Push(triple)
+        }
+    }
+
     if p.OutstandingPackets == 0 && p.Queue.IsEmpty() {
         p.NodeDone = true
+        return nil
     }
 
     if !p.Queue.IsEmpty() {
@@ -206,7 +218,16 @@ func (p *PPCC) handleAuthorityQuery (in *AuthorityQuery) error {
         return nil
     }
 
-    err := p.SendTo(p.Agency, &Reply{make([]string, 0)})
+    var err error
+
+    // Hardcoded response to simulate telecom response without implementing maps
+    if in.Query == "1234567890" && in.Telecom == 0 {
+        newArr := make([]lib.AgencyPair, 1)
+        newArr[0] = lib.AgencyPair{"1234567891", 1}
+        err = p.SendTo(p.Agency, &Reply{newArr})
+    } else {
+        err = p.SendTo(p.Agency, &Reply{make([]lib.AgencyPair, 0)})
+    }
     if err != nil {
         log.Lvl1("ERROR sending to parent")
         return err

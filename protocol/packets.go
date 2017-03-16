@@ -3,6 +3,7 @@ package protocol
 import (
 	//"gopkg.in/dedis/crypto.v0/abstract"
 	"gopkg.in/dedis/onet.v1"
+    "github.com/hm16083/ppcc/lib"
 )
 
 type Init struct {
@@ -22,7 +23,7 @@ type StructDone struct {
 }
 
 type Reply struct {
-	Response []string
+	Response []lib.AgencyPair
 }
 
 type StructReply struct {

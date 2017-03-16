@@ -65,11 +65,11 @@ func (e *ChannelSimulation) Run(config *onet.SimulationConfig) error {
 			return err
 		}
 
-        warrant := lib.NewTriple("1234567890", 0, 0)
-        warrant2 := lib.NewTriple("2031234567", 0, 0)
+        warrant := lib.NewTriple("1234567890", 0, 1)
+        //warrant2 := lib.NewTriple("2031234567", 0, 0)
         queue := lib.NewQueue(initSize)
         queue.Push(warrant)
-        queue.Push(warrant2)
+        //queue.Push(warrant2)
 
         rh := p.(*protocol.PPCC)
         rh.Queue = queue
