@@ -85,5 +85,8 @@ func (e *ChannelSimulation) Run(config *onet.SimulationConfig) error {
 		}
         */
 	}
+
+    log.Lvl1("Exiting Run()")
+
 	return nil
 }

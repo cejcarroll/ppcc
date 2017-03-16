@@ -11,31 +11,31 @@ import (
 )
 
 func init() {
-	network.RegisterMessage(Announce{})
 	network.RegisterMessage(Reply{})
 	network.RegisterMessage(Init{})
+	network.RegisterMessage(AuthorityQuery{})
 	onet.GlobalProtocolRegister("PPCC", NewPPCC)
 }
 
-// PPCC just holds a message that is passed to all children.
-// It also defines a channel that will receive the number of children. Only the
-// root-node will write to the channel.
+// PPCC defines the channels and variables associated with the contact-chaining protocol
 type PPCC struct {
 	*onet.TreeNodeInstance
 
-	ChildCount      chan int
+	ChildCount              chan int
 
-    ChannelInit     chan StructInit
-	ChannelAnnounce chan StructAnnounce
-    ChannelReply    chan StructReply
+    ChannelInit             chan StructInit
+    ChannelReply            chan StructReply
+    ChannelAuthorityQuery   chan StructAuthorityQuery
 
-    NodeDone        bool
-    ProtocolDone    chan bool
-    Replies         int
-	Queue           *lib.AgencyQueue
+    NodeDone                bool
+    ProtocolDone            chan bool
+    Replies                 int
+    Sent                    int
+	Queue                   *lib.AgencyQueue
 
-    NumTelecoms     int
-    Telecoms        []*onet.TreeNode
+    NumTelecoms             int
+    Telecoms                []*onet.TreeNode
+    Agency                  *onet.TreeNode
 }
 
 // NewPPCC initialises the structure for use in one round
@@ -44,13 +44,29 @@ func NewPPCC(n *onet.TreeNodeInstance) (onet.ProtocolInstance, error) {
 		TreeNodeInstance: n,
 		ChildCount:       make(chan int),
 	}
-    c.NodeDone = false
+    totalNodes := len(c.List())
+    telecoms := make([]*onet.TreeNode, totalNodes - 1)
+    j := 0
 
-	err := c.RegisterChannel(&c.ChannelAnnounce)
-	if err != nil {
-		return nil, errors.New("couldn't register announcement-channel: " + err.Error())
-	}
-	err = c.RegisterChannel(&c.ChannelReply)
+    for _, tn := range n.List() {
+        if (tn.IsRoot()) {
+            c.Agency = tn
+            continue
+        }
+
+        telecoms[j] = tn
+        j++
+        if j > totalNodes {
+            return nil, errors.New("too many telecoms")
+        }
+    }
+
+    c.NodeDone = false
+    c.Telecoms = telecoms
+    c.NumTelecoms = totalNodes - 1
+    c.Sent = 0
+
+    err := c.RegisterChannel(&c.ChannelReply)
 	if err != nil {
 		return nil, errors.New("couldn't register reply-channel: " + err.Error())
 	}
@@ -58,15 +74,19 @@ func NewPPCC(n *onet.TreeNodeInstance) (onet.ProtocolInstance, error) {
 	if err != nil {
 		return nil, errors.New("couldn't register init-channel: " + err.Error())
 	}
+	err = c.RegisterChannel(&c.ChannelAuthorityQuery)
+	if err != nil {
+		return nil, errors.New("couldn't register authquery-channel: " + err.Error())
+	}
 	return c, nil
 }
 
-// Start sends the Announce message to all children
+// Start begins the protocol by giving the Agency an init message
 func (p *PPCC) Start() error {
 	log.Lvl1("Starting PPCC!!")
-	//p.ChannelAnnounce <- StructAnnounce{nil, Announce{"Example is here"}}
-    warrant := p.Queue.Pop()
-    log.Lvl1("Warrant for phone: ", warrant.Node, "Telecom:", warrant.Telecom, "Depth:", warrant.Depth)
+    //warrant := p.Queue.Pop()
+    //log.Lvl1("Warrant for phone: ", warrant.Node, "Telecom:", warrant.Telecom, "Depth:", warrant.Depth)
+    //p.Queue.Push(warrant)
 
     out := &Init{}
 	return p.handleInit(out)
@@ -76,12 +96,12 @@ func (p *PPCC) Dispatch() error {
     for {
         var err error
         select {
-            case packet := <-p.ChannelAnnounce:
-                err = p.handleAnnounce(&packet.Announce)
             case packet := <-p.ChannelReply:
                 err = p.handleReply(&packet.Reply)
             case packet := <-p.ChannelInit:
                 err = p.handleInit(&packet.Init)
+            case packet := <-p.ChannelAuthorityQuery:
+                err = p.handleAuthorityQuery(&packet.AuthorityQuery)
         }
 
         if err != nil {
@@ -96,41 +116,38 @@ func (p *PPCC) Dispatch() error {
                 log.Lvl1("Child is DONE")
             }
             return nil
+        } else {
+            log.Lvl1("Node not done")
         }
     }
 }
 
+// Begins the protocol by dequeueing the first maessage (the warrant)
 func (p *PPCC) handleInit (in *Init) error {
+
+    log.Lvl1("Root in handleInit")
 
     if !p.IsRoot() {
         return fmt.Errorf("non-root node received Init message")
     }
 
-    log.Lvl1("Root in handleAnnounce")
-    for _, c := range p.Children() {
-        err := p.SendTo(c, &Announce{"Hello from the NSA!"})
-        if err != nil {
-            log.Error(p.Info(), "failed to send to", c.Name(), err)
-        }
+    warrant := p.Queue.Pop()
+    telecomIdx := warrant.Telecom
+    if telecomIdx >= p.NumTelecoms {
+        return fmt.Errorf("invalid telecom number")
     }
 
-    return nil
-}
-
-func (p *PPCC) handleAnnounce (in *Announce) error {
-
-    if p.IsRoot() {
-        return fmt.Errorf("root received Announce message")
+    out := &AuthorityQuery {
+        Query:      warrant.Node,
+        Telecom:    warrant.Telecom,
+        Depth:      warrant.Depth,
     }
 
-    log.Lvl1("Child in handleAnnounce")
-    err := p.SendTo(p.Parent(), &Reply{1})
+    err := p.SendTo(p.Telecoms[telecomIdx], out)
+    p.Sent++
     if err != nil {
-        log.Lvl1("ERROR sending to parent")
-        //log.Error(p.Info(), "failed to reply to", p.Parent().Name(), err)
-        return err
+        log.Error("failed to send initial warant", err)
     }
-    p.NodeDone = true
 
     return nil
 }
@@ -143,10 +160,29 @@ func (p *PPCC) handleReply(in *Reply) error {
     }
 
     p.Replies += 1
-    if p.Replies == len(p.Children()) {
-        log.Lvl1("Root received replies from all children")
+    if p.Replies == p.Sent {
+        log.Lvl1("Root received replies from all queried telecoms")
         p.NodeDone = true
+    } else {
+        log.Lvl1("Root not done, replies = ", p.Replies, " sent = ", p.Sent)
     }
 
+    return nil
+}
+
+func (p *PPCC) handleAuthorityQuery (in *AuthorityQuery) error {
+    log.Lvl1("Node", p.Name(), " with Info ", p.Info(), " Received QUERY")
+
+    if p.IsRoot() {
+        log.Lvl1("ROOT")
+        return nil
+    }
+
+    err := p.SendTo(p.Agency, &Reply{1})
+    if err != nil {
+        log.Lvl1("ERROR sending to parent")
+        return err
+    }
+    p.NodeDone = true
     return nil
 }
