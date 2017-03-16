@@ -22,7 +22,7 @@ type StructDone struct {
 }
 
 type Reply struct {
-	ChildrenCount int
+	Response []string
 }
 
 type StructReply struct {

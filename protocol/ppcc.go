@@ -206,7 +206,7 @@ func (p *PPCC) handleAuthorityQuery (in *AuthorityQuery) error {
         return nil
     }
 
-    err := p.SendTo(p.Agency, &Reply{1})
+    err := p.SendTo(p.Agency, &Reply{make([]string, 0)})
     if err != nil {
         log.Lvl1("ERROR sending to parent")
         return err
