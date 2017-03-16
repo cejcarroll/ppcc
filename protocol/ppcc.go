@@ -13,6 +13,7 @@ import (
 func init() {
 	network.RegisterMessage(Reply{})
 	network.RegisterMessage(Init{})
+	network.RegisterMessage(Done{})
 	network.RegisterMessage(AuthorityQuery{})
 	onet.GlobalProtocolRegister("PPCC", NewPPCC)
 }
@@ -24,13 +25,14 @@ type PPCC struct {
 	ChildCount              chan int
 
     ChannelInit             chan StructInit
+    ChannelDone             chan StructDone
     ChannelReply            chan StructReply
     ChannelAuthorityQuery   chan StructAuthorityQuery
 
     NodeDone                bool
     ProtocolDone            chan bool
-    Replies                 int
-    Sent                    int
+
+    OutstandingPackets      int
 	Queue                   *lib.AgencyQueue
 
     NumTelecoms             int
@@ -64,7 +66,7 @@ func NewPPCC(n *onet.TreeNodeInstance) (onet.ProtocolInstance, error) {
     c.NodeDone = false
     c.Telecoms = telecoms
     c.NumTelecoms = totalNodes - 1
-    c.Sent = 0
+    c.OutstandingPackets = 0
 
     err := c.RegisterChannel(&c.ChannelReply)
 	if err != nil {
@@ -77,6 +79,10 @@ func NewPPCC(n *onet.TreeNodeInstance) (onet.ProtocolInstance, error) {
 	err = c.RegisterChannel(&c.ChannelAuthorityQuery)
 	if err != nil {
 		return nil, errors.New("couldn't register authquery-channel: " + err.Error())
+	}
+	err = c.RegisterChannel(&c.ChannelDone)
+	if err != nil {
+		return nil, errors.New("couldn't register done-channel: " + err.Error())
 	}
 	return c, nil
 }
@@ -102,22 +108,26 @@ func (p *PPCC) Dispatch() error {
                 err = p.handleInit(&packet.Init)
             case packet := <-p.ChannelAuthorityQuery:
                 err = p.handleAuthorityQuery(&packet.AuthorityQuery)
+            case packet := <-p.ChannelDone:
+                err = p.handleDone(&packet.Done)
         }
 
         if err != nil {
             log.Error("%v", err)
         }
 
-        if p.NodeDone {
-            if p.IsRoot() {
-                log.Lvl1("Root is DONE")
-                p.ChildCount <- 1
-            } else {
-                log.Lvl1("Child is DONE")
+        if p.NodeDone && p.IsRoot() {
+            log.Lvl1("Root is DONE")
+            p.ChildCount <- 1
+
+            for _, tn := range p.Telecoms {
+                p.SendTo(tn, &Done{})
             }
             return nil
-        } else {
-            log.Lvl1("Node not done")
+        }
+
+        if p.NodeDone {
+            return nil
         }
     }
 }
@@ -144,7 +154,7 @@ func (p *PPCC) handleInit (in *Init) error {
     }
 
     err := p.SendTo(p.Telecoms[telecomIdx], out)
-    p.Sent++
+    p.OutstandingPackets++
     if err != nil {
         log.Error("failed to send initial warant", err)
     }
@@ -159,12 +169,30 @@ func (p *PPCC) handleReply(in *Reply) error {
         return fmt.Errorf("non-root received reply")
     }
 
-    p.Replies += 1
-    if p.Replies == p.Sent {
-        log.Lvl1("Root received replies from all queried telecoms")
+    p.OutstandingPackets--
+    if p.OutstandingPackets == 0 && p.Queue.IsEmpty() {
         p.NodeDone = true
-    } else {
-        log.Lvl1("Root not done, replies = ", p.Replies, " sent = ", p.Sent)
+    }
+
+    if !p.Queue.IsEmpty() {
+        log.Lvl1("In queueNotEmpty")
+        warrant := p.Queue.Pop()
+        telecomIdx := warrant.Telecom
+        if telecomIdx >= p.NumTelecoms {
+            return fmt.Errorf("invalid telecom number")
+        }
+
+        out := &AuthorityQuery {
+            Query:      warrant.Node,
+            Telecom:    warrant.Telecom,
+            Depth:      warrant.Depth,
+        }
+
+        err := p.SendTo(p.Telecoms[telecomIdx], out)
+        p.OutstandingPackets++
+        if err != nil {
+            log.Error("failed to send warant", err)
+        }
     }
 
     return nil
@@ -183,6 +211,14 @@ func (p *PPCC) handleAuthorityQuery (in *AuthorityQuery) error {
         log.Lvl1("ERROR sending to parent")
         return err
     }
+    return nil
+}
+
+func (p *PPCC) handleDone (in *Done) error {
+    if p.IsRoot() {
+        return fmt.Errorf("root received done message")
+    }
+
     p.NodeDone = true
     return nil
 }
