@@ -39,6 +39,7 @@ type PPCC struct {
     NumTelecoms             int
     Telecoms                []*onet.TreeNode
     Agency                  *onet.TreeNode
+    TelecomSubgraphs        []*lib.TelecomGraph
 }
 
 // NewPPCC initialises the structure for use in one round
@@ -48,9 +49,10 @@ func NewPPCC(n *onet.TreeNodeInstance) (onet.ProtocolInstance, error) {
 		ChildCount:       make(chan int),
 	}
     totalNodes := len(c.List())
-    telecoms := make([]*onet.TreeNode, totalNodes - 1)
-    j := 0
+    numTelecoms := totalNodes - 1
+    telecoms := make([]*onet.TreeNode, numTelecoms)
 
+    j := 0
     for _, tn := range n.List() {
         if (tn.IsRoot()) {
             c.Agency = tn
@@ -59,6 +61,7 @@ func NewPPCC(n *onet.TreeNodeInstance) (onet.ProtocolInstance, error) {
 
         telecoms[j] = tn
         j++
+
         if j > totalNodes {
             return nil, errors.New("too many telecoms")
         }
@@ -66,7 +69,7 @@ func NewPPCC(n *onet.TreeNodeInstance) (onet.ProtocolInstance, error) {
 
     c.NodeDone = false
     c.Telecoms = telecoms
-    c.NumTelecoms = totalNodes - 1
+    c.NumTelecoms = numTelecoms
     c.OutstandingPackets = 0
 
     err := c.RegisterChannel(&c.ChannelReply)
@@ -142,6 +145,15 @@ func (p *PPCC) handleInit (in *Init) error {
         return fmt.Errorf("non-root node received Init message")
     }
 
+    // If we have more nodes than graphs, "truncate" the graph
+    numGraphs := len(p.TelecomSubgraphs)
+    if numGraphs < p.NumTelecoms {
+        p.NumTelecoms = numGraphs
+        p.Telecoms = p.Telecoms[0:numGraphs]
+        log.Lvl1("Truncated Telecoms to length: ", len(p.Telecoms))
+    }
+
+    // Start protocol by handling the first message (the warrant)
     warrant := p.Queue.Pop()
     telecomIdx := warrant.Telecom
     p.CurrentDepth = warrant.Depth
@@ -211,10 +223,9 @@ func (p *PPCC) handleReply(in *Reply) error {
 }
 
 func (p *PPCC) handleAuthorityQuery (in *AuthorityQuery) error {
-    log.Lvl1("Node", p.Name(), " with Info ", p.Info(), " Received QUERY")
-
+    log.Lvl1("Node number ", in.Telecom, "Received query")
     if p.IsRoot() {
-        log.Lvl1("ROOT")
+        log.Lvl1("ERROR: Root received AuthorityQuery")
         return nil
     }
 
@@ -228,6 +239,24 @@ func (p *PPCC) handleAuthorityQuery (in *AuthorityQuery) error {
     } else {
         err = p.SendTo(p.Agency, &Reply{make([]lib.AgencyPair, 0)})
     }
+
+    /*
+    //TODO: subgraphs need to be distributed to telecoms during initialization
+    if in.Telecom >= len(p.TelecomSubgraphs) {
+        log.Lvl1("ERROR: Only have ", len(p.TelecomSubgraphs), "sets")
+        return nil
+    }
+
+    subgraph := p.TelecomSubgraphs[in.Telecom]
+    if !subgraph.ContainsNode(lib.AgencyPair{in.Query, in.Telecom}) {
+        log.Lvl1("ERROR: Node", in.Telecom, " does not contain phone ", in.Query)
+        return nil
+    } else {
+        log.Lvl1("SUCCESS: Node", in.Telecom, " does not contain phone ", in.Query)
+        err = p.SendTo(p.Agency, &Reply{make([]lib.AgencyPair, 0)})
+    }
+    */
+
     if err != nil {
         log.Lvl1("ERROR sending to parent")
         return err
