@@ -51,12 +51,6 @@ func (e *Simulation) Run(config *onet.SimulationConfig) error {
 	size := config.Tree.Size()
 	log.Lvl2("Size is:", size, "rounds:", e.Rounds)
 	for round := 0; round < e.Rounds; round++ {
-		log.Lvl1("Starting round", round)
-		round := monitor.NewTimeMeasure("round")
-		p, err := config.Overlay.CreateProtocol("PPCC", config.Tree, onet.NilServiceID)
-		if err != nil {
-			return err
-		}
 
         // Initialize Queue
         warrant := lib.NewTriple("1234567890", 0, 1)
@@ -106,11 +100,18 @@ func (e *Simulation) Run(config *onet.SimulationConfig) error {
         graph2.AddEdge(nodeList2[0], nodeList2[1])
         graph2.AddEdge(nodeList2[0], nodeList2[2])
 
-        graphArr := [3]*lib.TelecomGraph{graph0, graph1, graph2}
+        graphArr := [3]lib.TelecomGraph{*graph0, *graph1, *graph2}
+        protocol.SetGraphs(graphArr[:])
+
+		log.Lvl1("Starting round", round)
+		round := monitor.NewTimeMeasure("round")
+		p, err := config.Overlay.CreateProtocol("PPCC", config.Tree, onet.NilServiceID)
+		if err != nil {
+			return err
+		}
 
         rh := p.(*protocol.PPCC)
         rh.Queue = queue
-        rh.TelecomSubgraphs = graphArr[:]
 
 		go p.Start()
 		children := <-p.(*protocol.PPCC).ChildCount
