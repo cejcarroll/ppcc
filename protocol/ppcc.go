@@ -239,14 +239,23 @@ func (p *PPCC) handleAuthorityQuery (in *AuthorityQuery) error {
 
     var err error
 
-    // Hardcoded response to simulate telecom response without implementing maps
-    if in.Query == "1234567890" && in.Telecom == 0 {
-        newArr := make([]lib.AgencyPair, 1)
-        newArr[0] = lib.AgencyPair{"1234567891", 1}
-        err = p.SendTo(p.Agency, &Reply{newArr})
+    query := lib.AgencyPair{in.Query, in.Telecom}
+    graph := p.LocalSubgraph
+    out := make([]lib.AgencyPair, 0)
+    if graph.ContainsNode(query) {
+        neighbors := graph.Neighbors(query)
+        for _, pair := range neighbors {
+            if !graph.HasVisited(pair) {
+                out = append(out, pair)
+                graph.MarkVisited(pair)
+            }
+        }
+        log.Lvl1("Found ", len(out) , " unvisited neighbors: ", out)
     } else {
-        err = p.SendTo(p.Agency, &Reply{make([]lib.AgencyPair, 0)})
+        log.Lvl1("Graph ", graph, "Did not contain query ", query)
     }
+
+    err = p.SendTo(p.Agency, &Reply{out})
 
     if err != nil {
         log.Lvl1("ERROR sending to parent")

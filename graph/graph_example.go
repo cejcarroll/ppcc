@@ -60,6 +60,8 @@ func main() {
             numErrs++
    }
 
+   fmt.Println("Neighbors of node 1: ", myGraph.Neighbors(nodeList[1]))
+
     if numErrs == 0 {
         fmt.Println("PASS")
     } else {

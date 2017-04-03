@@ -8,6 +8,7 @@ type AgencyPair struct {
 type TelecomGraph struct {
     NumNodes    int
     Nodes       map[AgencyPair]bool
+    Visited     map[AgencyPair]bool
     Graph       map[AgencyPair][]AgencyPair
 }
 
@@ -20,12 +21,21 @@ func NewGraph(nodeList []AgencyPair) *TelecomGraph {
     return &TelecomGraph {
         NumNodes:   len(nodeList),
         Nodes:      contains,
+        Visited:    make(map[AgencyPair]bool),
         Graph:      make(map[AgencyPair][]AgencyPair),
     }
 }
 
 func (g *TelecomGraph) ContainsNode(node AgencyPair) bool {
     return g.Nodes[node]
+}
+
+func (g *TelecomGraph) HasVisited(node AgencyPair) bool {
+    return g.Visited[node]
+}
+
+func (g *TelecomGraph) MarkVisited (node AgencyPair) {
+    g.Visited[node] = true;
 }
 
 func (g *TelecomGraph) ContainsEdge(node1 AgencyPair, node2 AgencyPair) bool {
@@ -35,6 +45,10 @@ func (g *TelecomGraph) ContainsEdge(node1 AgencyPair, node2 AgencyPair) bool {
         }
     }
     return false
+}
+
+func (g *TelecomGraph) Neighbors(node AgencyPair) []AgencyPair {
+    return g.Graph[node]
 }
 
 func (g *TelecomGraph) AddEdge(node1 AgencyPair, node2 AgencyPair) {
