@@ -1,5 +1,6 @@
 package lib
 
+/*
 import (
 	
 	"gopkg.in/dedis/crypto.v0/abstract"
@@ -67,4 +68,5 @@ func TestCU(t *testing.T) {
 
 }
 
+*/
 

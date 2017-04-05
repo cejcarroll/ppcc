@@ -1,5 +1,6 @@
 package lib
 
+/*
 
 import (
 	"testing"
@@ -22,3 +23,4 @@ func TestPH(t *testing.T) {
 	println("Decryption succeeded: " + string(encmessage))
 
 }
+*/

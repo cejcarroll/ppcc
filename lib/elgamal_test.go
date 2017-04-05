@@ -1,5 +1,6 @@
 package lib
 
+/*
 
 import (
 	"gopkg.in/dedis/crypto.v0/nist"
@@ -29,5 +30,4 @@ func TestElgamal(t *testing.T) {
 
 }
 
-
-
+*/

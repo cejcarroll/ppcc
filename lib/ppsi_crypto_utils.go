@@ -1,7 +1,8 @@
 package lib
 
+/*
 import (
-	
+
 	"gopkg.in/dedis/crypto.v0/abstract"
 	"gopkg.in/dedis/crypto.v0/random"
 	"math/rand"
@@ -257,3 +258,4 @@ func (c *PPSI) PHEncrypt(M abstract.Point) (
 	S = c.suite.Point().Mul(M, c.encKey)
 	return
 }
+*/

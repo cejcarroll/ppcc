@@ -1,5 +1,6 @@
 package lib
 
+/*
 import (
 	"gopkg.in/dedis/crypto.v0/abstract"
 	"gopkg.in/dedis/crypto.v0/random"
@@ -64,4 +65,4 @@ func PartialElGamalDecrypt(suite abstract.Suite, prikey abstract.Scalar, K, C ab
 	_, err = M.Data()
 	return
 }
-
+*/

@@ -1,5 +1,6 @@
 package lib
 
+/*
 
 import (
 	"gopkg.in/dedis/crypto.v0/abstract"
@@ -73,3 +74,4 @@ func (c *PH) PartialPHEncrypt(M abstract.Point) (
 	S = c.suite.Point().Mul(M, c.encKey)
 	return
 }
+*/
