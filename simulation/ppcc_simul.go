@@ -53,7 +53,7 @@ func (e *Simulation) Run(config *onet.SimulationConfig) error {
 	for round := 0; round < e.Rounds; round++ {
 
         // Initialize Queue
-        warrant := lib.NewTriple("1234567890", 0, 1)
+        warrant := lib.NewTriple("1234567890", 0, 3)
         queue := lib.NewQueue(initSize)
         queue.Push(warrant)
 

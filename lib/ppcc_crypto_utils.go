@@ -1,14 +1,43 @@
 package lib
 
-/*
-import (
 
+
+import (
 	"gopkg.in/dedis/crypto.v0/abstract"
-	"gopkg.in/dedis/crypto.v0/random"
-	"math/rand"
-	"sync"
+	//"gopkg.in/dedis/crypto.v0/random"
+	//"math/rand"
+	//"sync"
 )
 
+type PPCC struct {
+    suite           abstract.Suite
+    publics         []abstract.Point
+    private         abstract.Scalar
+}
+
+func NewPPCC(suite abstract.Suite, private abstract.Scalar, publics []abstract.Point) *PPCC {
+    ppcc := &PPCC{
+        suite:      suite,
+        private:    private,
+        publics:    publics,
+    }
+    return ppcc;
+}
+
+func (c *PPCC) EncryptTelecomMessage(message string) (
+    K abstract.Point, C abstract.Point, remainder []byte) {
+
+    return ElGamalEncrypt(c.suite, c.publics[0], []byte(message))
+}
+
+func (c *PPCC) DecryptTelecomMessage(K, C abstract.Point) (message string, err error){
+    bytes, e := ElGamalDecrypt(c.suite, c.private, K, C)
+    message = string(bytes)
+    err = e
+    return
+}
+
+/*
 type PPSI struct {
 	EncryptedSets [][]map[int]abstract.Point
 	ids           int

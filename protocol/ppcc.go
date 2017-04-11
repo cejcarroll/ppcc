@@ -3,8 +3,9 @@ package protocol
 import (
 	"errors"
 	"fmt"
+    "strconv"
 	"github.com/hm16083/ppcc/lib"
-    //"gopkg.in/dedis/crypto.v0/abstract"
+    "gopkg.in/dedis/crypto.v0/abstract"
 	"gopkg.in/dedis/onet.v1"
 	"gopkg.in/dedis/onet.v1/network"
 	"gopkg.in/dedis/onet.v1/log"
@@ -24,6 +25,8 @@ var globalGraphs []lib.TelecomGraph
 func SetGraphs (subgraphs []lib.TelecomGraph) {
     globalGraphs = subgraphs
 }
+
+var numAuthorities int = 1
 
 // PPCC defines the channels and variables associated with the contact-chaining protocol
 type PPCC struct {
@@ -50,19 +53,27 @@ type PPCC struct {
     OutputList              map[string]bool
 	TelecomIdx				int
     LocalSubgraph           *lib.TelecomGraph
+
+    ppcc                    *lib.PPCC
 }
 
 // NewPPCC initialises the structure for use in one round
 func NewPPCC(n *onet.TreeNodeInstance) (onet.ProtocolInstance, error) {
+
+    // Initialize Crypto libraries
+    if (numAuthorities > 1) {
+		return nil, errors.New("Protocol does not yet support multiple authorities")
+    }
+
 	c := &PPCC{
-		TreeNodeInstance: n,
-		ChildCount:       make(chan int),
+		TreeNodeInstance:   n,
+		ChildCount:         make(chan int),
 	}
 
-    totalNodes := len(c.List())
+    // Assign node number and telecom subgraph
+    totalNodes := len(n.List())
     numTelecoms := totalNodes - 1
     telecoms := make([]*onet.TreeNode, numTelecoms)
-
     j := 0
     for _, tn := range n.List() {
         if (tn.IsRoot()) {
@@ -84,11 +95,16 @@ func NewPPCC(n *onet.TreeNodeInstance) (onet.ProtocolInstance, error) {
         }
     }
 
+    publics := make([]abstract.Point, 1)
+    publics[0] = c.Agency.ServerIdentity.Public
+
+    c.ppcc = lib.NewPPCC(n.Suite(), n.Private(), publics)
     c.NodeDone = false
     c.Telecoms = telecoms
     c.NumTelecoms = numTelecoms
     c.OutstandingPackets = 0
 
+    // Register channels
     err := c.RegisterChannel(&c.ChannelReply)
 	if err != nil {
 		return nil, errors.New("couldn't register reply-channel: " + err.Error())
@@ -116,6 +132,7 @@ func (p *PPCC) Start() error {
 
 func (p *PPCC) Dispatch() error {
     for {
+        // Invoke the handler function associated with the received packet
         var err error
         select {
             case packet := <-p.ChannelReply:
@@ -163,20 +180,26 @@ func (p *PPCC) handleInit (in *Init) error {
         log.Lvl1("Truncated Telecoms to length: ", len(p.Telecoms))
     }
 
+    // Initialize output list for agency
+    p.OutputList = make(map[string]bool)
+
     // Start protocol by handling the first message (the warrant)
     warrant := p.Queue.Pop()
     telecomIdx := warrant.Telecom
     p.CurrentDepth = warrant.Depth
+    log.Lvl1("Started protocol with depth ", warrant.Depth)
     if telecomIdx >= p.NumTelecoms {
         return fmt.Errorf("invalid telecom number")
     }
 
+    // Build authority packet to send to telecom
     out := &AuthorityQuery {
         Query:      warrant.Node,
         Telecom:    warrant.Telecom,
         Depth:      warrant.Depth,
     }
 
+    // Send to telecom
     err := p.SendTo(p.Telecoms[telecomIdx], out)
     p.OutstandingPackets++
     if err != nil {
@@ -187,31 +210,45 @@ func (p *PPCC) handleInit (in *Init) error {
 }
 
 func (p *PPCC) handleReply(in *Reply) error {
-    log.Lvl1("In HandleReply")
+    log.Lvl1("In HandleReply, len encPhones, encTelecoms:", len(in.EncPhones), ",", len(in.EncTelecoms))
 
     if !p.IsRoot() {
         return fmt.Errorf("non-root received reply")
     }
 
     p.OutstandingPackets--
-    for _, pair := range in.Response {
-        triple := lib.NewTriple(pair.Node, pair.Telecom, p.CurrentDepth - 1)
+    for i, _ := range(in.EncPhones) {
+        if (i % 2 == 1) {
+            continue
+        }
+
+        // Decrypt message and telecom information
+        message, _ := p.ppcc.DecryptTelecomMessage(in.EncPhones[i],   in.EncPhones[i + 1])
+        telecom, _ := p.ppcc.DecryptTelecomMessage(in.EncTelecoms[i], in.EncTelecoms[i + 1])
+        num, _ := strconv.Atoi(telecom)
+
+        // Push to queue and add to output list
+        triple := lib.NewTriple(message, num, p.CurrentDepth - 1)
+        p.OutputList[message] = true
         if p.CurrentDepth > 0 {
             p.Queue.Push(triple)
         }
     }
 
+    // See if the protocol has terminated
     if p.OutstandingPackets == 0 && p.Queue.IsEmpty() {
         p.NodeDone = true
         return nil
     }
 
+    // Dequeue and send next triple 
     if !p.Queue.IsEmpty() {
         warrant := p.Queue.Pop()
         telecomIdx := warrant.Telecom
         if telecomIdx >= p.NumTelecoms {
             return fmt.Errorf("invalid telecom number")
         }
+        p.CurrentDepth = warrant.Depth
 
         out := &AuthorityQuery {
             Query:      warrant.Node,
@@ -230,7 +267,7 @@ func (p *PPCC) handleReply(in *Reply) error {
 }
 
 func (p *PPCC) handleAuthorityQuery (in *AuthorityQuery) error {
-    log.Lvl1("Node ", p.TelecomIdx, "in HandleReply")
+    log.Lvl1("Node ", p.TelecomIdx, "in HandleReply for ", in.Query)
 
     if p.IsRoot() {
         log.Lvl1("ERROR: Root received AuthorityQuery")
@@ -241,21 +278,25 @@ func (p *PPCC) handleAuthorityQuery (in *AuthorityQuery) error {
 
     query := lib.AgencyPair{in.Query, in.Telecom}
     graph := p.LocalSubgraph
-    out := make([]lib.AgencyPair, 0)
+
+    encPhones   := make([]abstract.Point, 0)
+    encTelecoms := make([]abstract.Point, 0)
+
     if graph.ContainsNode(query) {
         neighbors := graph.Neighbors(query)
         for _, pair := range neighbors {
             if !graph.HasVisited(pair) {
-                out = append(out, pair)
+                K, C, _ := p.ppcc.EncryptTelecomMessage(pair.Node)
+                encPhones =   append(encPhones, []abstract.Point{K, C}...)
+                K, C, _  = p.ppcc.EncryptTelecomMessage(strconv.Itoa(pair.Telecom))
+                encTelecoms = append(encTelecoms, []abstract.Point{K, C}...)
                 graph.MarkVisited(pair)
             }
         }
-        log.Lvl1("Found ", len(out) , " unvisited neighbors: ", out)
-    } else {
-        log.Lvl1("Graph ", graph, "Did not contain query ", query)
+        log.Lvl1("Found ", len(encPhones) / 2, " unvisited neighbors: ")
     }
 
-    err = p.SendTo(p.Agency, &Reply{out})
+    err = p.SendTo(p.Agency, &Reply{encPhones, encTelecoms})
 
     if err != nil {
         log.Lvl1("ERROR sending to parent")

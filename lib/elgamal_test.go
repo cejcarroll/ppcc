@@ -1,7 +1,5 @@
 package lib
 
-/*
-
 import (
 	"gopkg.in/dedis/crypto.v0/nist"
 	"gopkg.in/dedis/crypto.v0/random"
@@ -29,5 +27,3 @@ func TestElgamal(t *testing.T) {
 	println("Decryption succeeded: " + string(mm))
 
 }
-
-*/

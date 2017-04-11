@@ -1,9 +1,9 @@
 package protocol
 
 import (
-	//"gopkg.in/dedis/crypto.v0/abstract"
+	"gopkg.in/dedis/crypto.v0/abstract"
 	"gopkg.in/dedis/onet.v1"
-    "github.com/hm16083/ppcc/lib"
+    //"github.com/hm16083/ppcc/lib"
 )
 
 type Init struct {
@@ -23,7 +23,8 @@ type StructDone struct {
 }
 
 type Reply struct {
-	Response []lib.AgencyPair
+    EncPhones   []abstract.Point
+    EncTelecoms []abstract.Point
 }
 
 type StructReply struct {

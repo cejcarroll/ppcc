@@ -1,6 +1,5 @@
 package lib
 
-/*
 import (
 	"gopkg.in/dedis/crypto.v0/abstract"
 	"gopkg.in/dedis/crypto.v0/random"
@@ -42,10 +41,10 @@ func PartialElGamalEncrypt(suite abstract.Suite, pubkey abstract.Point, M abstra
 	K = suite.Point().Mul(nil, k)
 	S := suite.Point().Mul(pubkey, k)
 	C = S.Add(S, M)
-	
+
 	return
 }
-	
+
 //pefroms elgamal decryption, output is a message
 func ElGamalDecrypt(suite abstract.Suite, prikey abstract.Scalar, K, C abstract.Point) (
 	message []byte, err error) {
@@ -65,4 +64,3 @@ func PartialElGamalDecrypt(suite abstract.Suite, prikey abstract.Scalar, K, C ab
 	_, err = M.Data()
 	return
 }
-*/
