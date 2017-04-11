@@ -36,6 +36,9 @@ type AuthorityQuery struct {
     Query   string
     Telecom int
     Depth   int
+    EncQuery    []abstract.Point
+    EncTelecom  []abstract.Point
+    EncDepth    []abstract.Point
 }
 
 type StructAuthorityQuery struct {

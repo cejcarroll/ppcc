@@ -24,10 +24,10 @@ func NewPPCC(suite abstract.Suite, private abstract.Scalar, publics []abstract.P
     return ppcc;
 }
 
-func (c *PPCC) EncryptTelecomMessage(message string) (
+func (c *PPCC) EncryptTelecomMessage(message string, idx int) (
     K abstract.Point, C abstract.Point, remainder []byte) {
 
-    return ElGamalEncrypt(c.suite, c.publics[0], []byte(message))
+    return ElGamalEncrypt(c.suite, c.publics[idx], []byte(message))
 }
 
 func (c *PPCC) DecryptTelecomMessage(K, C abstract.Point) (message string, err error){

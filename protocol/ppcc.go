@@ -55,12 +55,13 @@ type PPCC struct {
     LocalSubgraph           *lib.TelecomGraph
 
     ppcc                    *lib.PPCC
+    publics                 []abstract.Point
+    private                 abstract.Scalar
 }
 
 // NewPPCC initialises the structure for use in one round
 func NewPPCC(n *onet.TreeNodeInstance) (onet.ProtocolInstance, error) {
 
-    // Initialize Crypto libraries
     if (numAuthorities > 1) {
 		return nil, errors.New("Protocol does not yet support multiple authorities")
     }
@@ -70,12 +71,14 @@ func NewPPCC(n *onet.TreeNodeInstance) (onet.ProtocolInstance, error) {
 		ChildCount:         make(chan int),
 	}
 
-    // Assign node number and telecom subgraph
+    // Assign node number, public/private keys, and telecom subgraph
     totalNodes := len(n.List())
-    numTelecoms := totalNodes - 1
+    numTelecoms := totalNodes - numAuthorities
     telecoms := make([]*onet.TreeNode, numTelecoms)
+    publics := make([]abstract.Point, totalNodes)
     j := 0
-    for _, tn := range n.List() {
+    for i, tn := range n.List() {
+        publics[i] = tn.ServerIdentity.Public
         if (tn.IsRoot()) {
             c.Agency = tn
             continue
@@ -94,9 +97,6 @@ func NewPPCC(n *onet.TreeNodeInstance) (onet.ProtocolInstance, error) {
             return nil, errors.New("too many telecoms")
         }
     }
-
-    publics := make([]abstract.Point, 1)
-    publics[0] = c.Agency.ServerIdentity.Public
 
     c.ppcc = lib.NewPPCC(n.Suite(), n.Private(), publics)
     c.NodeDone = false
@@ -192,11 +192,19 @@ func (p *PPCC) handleInit (in *Init) error {
         return fmt.Errorf("invalid telecom number")
     }
 
+    // Encrypt components of the message under the telecoms public key
+    K1, C1, _ := p.ppcc.EncryptTelecomMessage(warrant.Node, numAuthorities + telecomIdx)
+    K2, C2, _ := p.ppcc.EncryptTelecomMessage(strconv.Itoa(warrant.Telecom), numAuthorities + telecomIdx)
+    K3, C3, _ := p.ppcc.EncryptTelecomMessage(strconv.Itoa(warrant.Depth), numAuthorities + telecomIdx)
+
     // Build authority packet to send to telecom
     out := &AuthorityQuery {
         Query:      warrant.Node,
         Telecom:    warrant.Telecom,
         Depth:      warrant.Depth,
+        EncQuery:   []abstract.Point{K1, C1},
+        EncTelecom: []abstract.Point{K2, C2},
+        EncDepth:   []abstract.Point{K3, C3},
     }
 
     // Send to telecom
@@ -250,10 +258,16 @@ func (p *PPCC) handleReply(in *Reply) error {
         }
         p.CurrentDepth = warrant.Depth
 
+        K1, C1, _ := p.ppcc.EncryptTelecomMessage(warrant.Node, numAuthorities + telecomIdx)
+        K2, C2, _ := p.ppcc.EncryptTelecomMessage(strconv.Itoa(warrant.Telecom), numAuthorities + telecomIdx)
+        K3, C3, _ := p.ppcc.EncryptTelecomMessage(strconv.Itoa(warrant.Depth), numAuthorities + telecomIdx)
         out := &AuthorityQuery {
             Query:      warrant.Node,
             Telecom:    warrant.Telecom,
             Depth:      warrant.Depth,
+            EncQuery:   []abstract.Point{K1, C1},
+            EncTelecom: []abstract.Point{K2, C2},
+            EncDepth:   []abstract.Point{K3, C3},
         }
 
         err := p.SendTo(p.Telecoms[telecomIdx], out)
@@ -268,6 +282,7 @@ func (p *PPCC) handleReply(in *Reply) error {
 
 func (p *PPCC) handleAuthorityQuery (in *AuthorityQuery) error {
     log.Lvl1("Node ", p.TelecomIdx, "in HandleReply for ", in.Query)
+    log.Lvl1("len query, tcom, depth: ", len(in.EncQuery), ",", len(in.EncTelecom), ",", len(in.EncDepth))
 
     if p.IsRoot() {
         log.Lvl1("ERROR: Root received AuthorityQuery")
@@ -286,9 +301,9 @@ func (p *PPCC) handleAuthorityQuery (in *AuthorityQuery) error {
         neighbors := graph.Neighbors(query)
         for _, pair := range neighbors {
             if !graph.HasVisited(pair) {
-                K, C, _ := p.ppcc.EncryptTelecomMessage(pair.Node)
+                K, C, _ := p.ppcc.EncryptTelecomMessage(pair.Node, 0)
                 encPhones =   append(encPhones, []abstract.Point{K, C}...)
-                K, C, _  = p.ppcc.EncryptTelecomMessage(strconv.Itoa(pair.Telecom))
+                K, C, _  = p.ppcc.EncryptTelecomMessage(strconv.Itoa(pair.Telecom), 0)
                 encTelecoms = append(encTelecoms, []abstract.Point{K, C}...)
                 graph.MarkVisited(pair)
             }
@@ -299,7 +314,7 @@ func (p *PPCC) handleAuthorityQuery (in *AuthorityQuery) error {
     err = p.SendTo(p.Agency, &Reply{encPhones, encTelecoms})
 
     if err != nil {
-        log.Lvl1("ERROR sending to parent")
+        log.Lvl1("ERROR sending to agency")
         return err
     }
     return nil
