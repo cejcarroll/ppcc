@@ -64,6 +64,7 @@ type PPCC struct {
     ppcc                    *lib.PPCC
     publics                 []abstract.Point
     private                 abstract.Scalar
+    verifyKey               abstract.Point
 }
 
 // NewPPCC initialises the structure for use in one round
@@ -212,6 +213,11 @@ func (p *PPCC) handleInit (in *Init) error {
         Depth:      warrant.Depth,
     }
 
+    // Sign the fields of the message and attach the signature to the packet
+    str := fmt.Sprintf("%+v%+v%+v", out.EncQuery, out.Telecom, out.Depth)
+    out.Signature = p.ppcc.SignMessage(str)
+    out.VerifyKey = p.ppcc.VerifyKey
+
     // Send to telecom
     err := p.SendTo(p.Telecoms[telecomIdx], out)
     p.OutstandingPackets++
@@ -245,9 +251,7 @@ func (p *PPCC) handleReply(in *Reply) error {
 
         // Push to queue
         triple := lib.NewTriple(message, telecom, p.CurrentDepth - 1)
-        if p.CurrentDepth > 0 {
-            p.Queue.Push(triple)
-        }
+        p.Queue.Push(triple)
     }
 
     // See if the protocol has terminated
@@ -271,6 +275,11 @@ func (p *PPCC) handleReply(in *Reply) error {
             Depth:      warrant.Depth,
         }
 
+        // Sign the fields of the message and attach the signature to the packet
+        str := fmt.Sprintf("%+v%+v%+v", out.EncQuery, out.Telecom, out.Depth)
+        out.Signature = p.ppcc.SignMessage(str)
+        out.VerifyKey = p.ppcc.VerifyKey
+
         err := p.SendTo(p.Telecoms[telecomIdx], out)
         p.OutstandingPackets++
         if err != nil {
@@ -282,6 +291,7 @@ func (p *PPCC) handleReply(in *Reply) error {
 }
 
 func (p *PPCC) handleAuthorityQuery (in *AuthorityQuery) error {
+    var err error
 
     if p.IsRoot() {
         log.Lvl1("ERROR: Root received AuthorityQuery")
@@ -293,20 +303,32 @@ func (p *PPCC) handleAuthorityQuery (in *AuthorityQuery) error {
         return nil
     }
 
+    // Verify the authorities' signature
+    if in.VerifyKey != nil {
+        p.verifyKey = in.VerifyKey
+    }
+
+    str := fmt.Sprintf("%+v%+v%+v", in.EncQuery, in.Telecom, in.Depth)
+    verify := p.ppcc.VerifyMessage(str, p.verifyKey, in.Signature)
+
+    if verify != nil {
+        log.Lvl1("ERROR: Could not verify signature: ", verify)
+    }
+
+    // Decrypt the message and reencrypt it under the agency's public key
     nodeQuery, _ := p.ppcc.DecryptTelecomMessage(in.EncQuery.K, in.EncQuery.C)
     log.Lvl1("Node ", p.TelecomIdx, " handling query for ", nodeQuery)
     K, C, _ := p.ppcc.EncryptTelecomMessage(nodeQuery, 0)
     encQuery := lib.Ciphertext{K, C}
 
-    var err error
-
-    query := lib.AgencyPair{nodeQuery, in.Telecom}
+    // Prepare to iterate over neighbors
+    query := lib.AgencyPair{nodeQuery, p.TelecomIdx}
     graph := p.LocalSubgraph
-
     encPhones := make([]abstract.Point, 0)
     telecoms  := make([]string, 0)
 
-    if graph.ContainsNode(query) {
+    // Iterate over neighbors of the node, and create encrypted sets to send back to agency
+    if in.Depth > 0 && graph.ContainsNode(query) {
         neighbors := graph.Neighbors(query)
         for _, pair := range neighbors {
             if !graph.HasVisited(pair) {
@@ -319,6 +341,7 @@ func (p *PPCC) handleAuthorityQuery (in *AuthorityQuery) error {
         log.Lvl1("Found ", len(telecoms), " unvisited neighbors: ")
     }
 
+    // Send original query (encrypted with agency pubkey) and neighbors (under telecom pubkeys)
     err = p.SendTo(p.Agency, &Reply{encQuery, encPhones, telecoms})
 
     if err != nil {

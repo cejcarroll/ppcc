@@ -35,6 +35,8 @@ type StructReply struct {
 
 type AuthorityQuery struct {
     EncQuery    lib.Ciphertext
+    Signature   []byte
+    VerifyKey   abstract.Point
     Telecom     int
     Depth       int
 }
