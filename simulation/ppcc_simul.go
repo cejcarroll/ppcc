@@ -115,9 +115,9 @@ func (e *Simulation) Run(config *onet.SimulationConfig) error {
         rh.InitWarrant = warrant
 
 		go p.Start()
-		children := <-p.(*protocol.PPCC).ChildCount
+        done := <-p.(*protocol.PPCC).ProtocolDone
 		round.Record()
-        log.Lvl1("ChildCount returned:", children)
+        log.Lvl1("ProtocolDone:" , done, ", output list: ", rh.OutputList)
     }
 
     log.Lvl1("Exiting Run()")

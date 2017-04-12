@@ -38,8 +38,6 @@ type Warrant struct {
 type PPCC struct {
 	*onet.TreeNodeInstance
 
-	ChildCount              chan int
-
     ChannelInit             chan StructInit
     ChannelDone             chan StructDone
     ChannelReply            chan StructReply
@@ -76,7 +74,7 @@ func NewPPCC(n *onet.TreeNodeInstance) (onet.ProtocolInstance, error) {
 
 	c := &PPCC{
 		TreeNodeInstance:   n,
-		ChildCount:         make(chan int),
+        ProtocolDone:       make(chan bool),
 	}
 
     // Assign node number, public/private keys, and telecom subgraph
@@ -159,7 +157,7 @@ func (p *PPCC) Dispatch() error {
 
         if p.NodeDone && p.IsRoot() {
             log.Lvl1("Root is DONE")
-            p.ChildCount <- 1
+            p.ProtocolDone <- true
 
             for _, tn := range p.Telecoms {
                 p.SendTo(tn, &Done{})
@@ -269,6 +267,7 @@ func (p *PPCC) handleReply(in *Reply) error {
         }
         p.CurrentDepth = warrant.Depth
 
+        // Construct packet without signature
         out := &AuthorityQuery {
             EncQuery:   lib.Ciphertext{warrant.EncPhone.K, warrant.EncPhone.C},
             Telecom:    warrant.Telecom,
@@ -304,13 +303,9 @@ func (p *PPCC) handleAuthorityQuery (in *AuthorityQuery) error {
     }
 
     // Verify the authorities' signature
-    if in.VerifyKey != nil {
-        p.verifyKey = in.VerifyKey
-    }
-
+    p.verifyKey = in.VerifyKey
     str := fmt.Sprintf("%+v%+v%+v", in.EncQuery, in.Telecom, in.Depth)
     verify := p.ppcc.VerifyMessage(str, p.verifyKey, in.Signature)
-
     if verify != nil {
         log.Lvl1("ERROR: Could not verify signature: ", verify)
     }
@@ -343,9 +338,8 @@ func (p *PPCC) handleAuthorityQuery (in *AuthorityQuery) error {
 
     // Send original query (encrypted with agency pubkey) and neighbors (under telecom pubkeys)
     err = p.SendTo(p.Agency, &Reply{encQuery, encPhones, telecoms})
-
     if err != nil {
-        log.Lvl1("ERROR sending to agency")
+        log.Lvl1("ERROR while sending to agency:", err)
         return err
     }
     return nil
