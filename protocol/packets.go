@@ -3,7 +3,7 @@ package protocol
 import (
 	"gopkg.in/dedis/crypto.v0/abstract"
 	"gopkg.in/dedis/onet.v1"
-    //"github.com/hm16083/ppcc/lib"
+    "github.com/hm16083/ppcc/lib"
 )
 
 type Init struct {
@@ -23,7 +23,7 @@ type StructDone struct {
 }
 
 type Reply struct {
-    EncQuery       []abstract.Point
+    EncQuery       lib.Ciphertext
     EncPhones      []abstract.Point
     Telecoms       []string
 }
@@ -34,7 +34,7 @@ type StructReply struct {
 }
 
 type AuthorityQuery struct {
-    EncQuery    []abstract.Point
+    EncQuery    lib.Ciphertext
     Telecom     int
     Depth       int
 }

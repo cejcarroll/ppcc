@@ -53,9 +53,10 @@ func (e *Simulation) Run(config *onet.SimulationConfig) error {
 	for round := 0; round < e.Rounds; round++ {
 
         // Initialize Queue
-        warrant := lib.NewTriple("1234567890", 0, 3)
-        queue := lib.NewQueue(initSize)
-        queue.Push(warrant)
+        warrant := protocol.Warrant{"1234567890", 0, 3}
+        //warrant := lib.NewTriple("1234567890", 0, 3)
+        //queue := lib.NewQueue(initSize)
+        //queue.Push(warrant)
 
         // Graph0
         nodeList0 := [6]lib.AgencyPair {
@@ -111,7 +112,7 @@ func (e *Simulation) Run(config *onet.SimulationConfig) error {
 		}
 
         rh := p.(*protocol.PPCC)
-        rh.Queue = queue
+        rh.InitWarrant = warrant
 
 		go p.Start()
 		children := <-p.(*protocol.PPCC).ChildCount

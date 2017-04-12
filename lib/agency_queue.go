@@ -1,9 +1,18 @@
 package lib
 
+import (
+    "gopkg.in/dedis/crypto.v0/abstract"
+)
+
+type Ciphertext struct {
+    K   abstract.Point
+    C   abstract.Point
+}
+
 type AgencyTriple struct {
-    Node    string
-    Telecom int
-    Depth   int
+    EncPhone    Ciphertext
+    Telecom     int
+    Depth       int
 }
 
 // https://gist.github.com/moraes/2141121
@@ -53,9 +62,9 @@ func NewQueue(size int) *AgencyQueue {
 	}
 }
 
-func NewTriple(node string, telecom int, depth int) *AgencyTriple {
+func NewTriple(node Ciphertext, telecom int, depth int) *AgencyTriple {
     return &AgencyTriple {
-        Node: node,
+        EncPhone: node,
         Telecom: telecom,
         Depth: depth,
     }
