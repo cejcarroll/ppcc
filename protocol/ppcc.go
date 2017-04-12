@@ -165,7 +165,7 @@ func (p *PPCC) Dispatch() error {
     }
 }
 
-// Begins the protocol by dequeueing the first maessage (the warrant)
+// Begins the protocol by dequeueing the first message (the warrant)
 func (p *PPCC) handleInit (in *Init) error {
 
     if !p.IsRoot() {
@@ -194,17 +194,12 @@ func (p *PPCC) handleInit (in *Init) error {
 
     // Encrypt components of the message under the telecoms public key
     K1, C1, _ := p.ppcc.EncryptTelecomMessage(warrant.Node, numAuthorities + telecomIdx)
-    K2, C2, _ := p.ppcc.EncryptTelecomMessage(strconv.Itoa(warrant.Telecom), numAuthorities + telecomIdx)
-    K3, C3, _ := p.ppcc.EncryptTelecomMessage(strconv.Itoa(warrant.Depth), numAuthorities + telecomIdx)
 
     // Build authority packet to send to telecom
     out := &AuthorityQuery {
-        Query:      warrant.Node,
+        EncQuery:   []abstract.Point{K1, C1},
         Telecom:    warrant.Telecom,
         Depth:      warrant.Depth,
-        EncQuery:   []abstract.Point{K1, C1},
-        EncTelecom: []abstract.Point{K2, C2},
-        EncDepth:   []abstract.Point{K3, C3},
     }
 
     // Send to telecom
@@ -218,26 +213,28 @@ func (p *PPCC) handleInit (in *Init) error {
 }
 
 func (p *PPCC) handleReply(in *Reply) error {
-    log.Lvl1("In HandleReply, len encPhones, encTelecoms:", len(in.EncPhones), ",", len(in.EncTelecoms))
+    log.Lvl1("In HandleReply")
 
     if !p.IsRoot() {
         return fmt.Errorf("non-root received reply")
     }
 
+    decryptedNode, _ := p.ppcc.DecryptTelecomMessage(in.EncQuery[0], in.EncQuery[1])
+    log.Lvl1("Decrypted node: ", decryptedNode)
+    p.OutputList[decryptedNode] = true
+
     p.OutstandingPackets--
-    for i, _ := range(in.EncPhones) {
-        if (i % 2 == 1) {
+    for i, s := range(in.Telecoms) {
+        if s == "" {
             continue
         }
 
         // Decrypt message and telecom information
-        message, _ := p.ppcc.DecryptTelecomMessage(in.EncPhones[i],   in.EncPhones[i + 1])
-        telecom, _ := p.ppcc.DecryptTelecomMessage(in.EncTelecoms[i], in.EncTelecoms[i + 1])
-        num, _ := strconv.Atoi(telecom)
+        message, _ := p.ppcc.DecryptTelecomMessage(in.EncPhones[2 * i],   in.EncPhones[2 * i + 1])
+        telecom, _ := strconv.Atoi(in.Telecoms[i])
 
         // Push to queue and add to output list
-        triple := lib.NewTriple(message, num, p.CurrentDepth - 1)
-        p.OutputList[message] = true
+        triple := lib.NewTriple(message, telecom, p.CurrentDepth - 1)
         if p.CurrentDepth > 0 {
             p.Queue.Push(triple)
         }
@@ -259,15 +256,10 @@ func (p *PPCC) handleReply(in *Reply) error {
         p.CurrentDepth = warrant.Depth
 
         K1, C1, _ := p.ppcc.EncryptTelecomMessage(warrant.Node, numAuthorities + telecomIdx)
-        K2, C2, _ := p.ppcc.EncryptTelecomMessage(strconv.Itoa(warrant.Telecom), numAuthorities + telecomIdx)
-        K3, C3, _ := p.ppcc.EncryptTelecomMessage(strconv.Itoa(warrant.Depth), numAuthorities + telecomIdx)
         out := &AuthorityQuery {
-            Query:      warrant.Node,
+            EncQuery:   []abstract.Point{K1, C1},
             Telecom:    warrant.Telecom,
             Depth:      warrant.Depth,
-            EncQuery:   []abstract.Point{K1, C1},
-            EncTelecom: []abstract.Point{K2, C2},
-            EncDepth:   []abstract.Point{K3, C3},
         }
 
         err := p.SendTo(p.Telecoms[telecomIdx], out)
@@ -281,37 +273,44 @@ func (p *PPCC) handleReply(in *Reply) error {
 }
 
 func (p *PPCC) handleAuthorityQuery (in *AuthorityQuery) error {
-    log.Lvl1("Node ", p.TelecomIdx, "in HandleReply for ", in.Query)
-    log.Lvl1("len query, tcom, depth: ", len(in.EncQuery), ",", len(in.EncTelecom), ",", len(in.EncDepth))
 
     if p.IsRoot() {
         log.Lvl1("ERROR: Root received AuthorityQuery")
         return nil
     }
 
+    if p.TelecomIdx != in.Telecom {
+        log.Lvl1("ERROR: Node ", p.TelecomIdx, " received msg intended for ", in.Telecom)
+        return nil
+    }
+
+    nodeQuery, _ := p.ppcc.DecryptTelecomMessage(in.EncQuery[0], in.EncQuery[1])
+    log.Lvl1("Node ", p.TelecomIdx, " handling query for ", nodeQuery)
+    K, C, _ := p.ppcc.EncryptTelecomMessage(nodeQuery, 0)
+    encQuery := []abstract.Point{K, C}
+
     var err error
 
-    query := lib.AgencyPair{in.Query, in.Telecom}
+    query := lib.AgencyPair{nodeQuery, in.Telecom}
     graph := p.LocalSubgraph
 
-    encPhones   := make([]abstract.Point, 0)
-    encTelecoms := make([]abstract.Point, 0)
+    encPhones := make([]abstract.Point, 0)
+    telecoms  := make([]string, 0)
 
     if graph.ContainsNode(query) {
         neighbors := graph.Neighbors(query)
         for _, pair := range neighbors {
             if !graph.HasVisited(pair) {
-                K, C, _ := p.ppcc.EncryptTelecomMessage(pair.Node, 0)
-                encPhones =   append(encPhones, []abstract.Point{K, C}...)
-                K, C, _  = p.ppcc.EncryptTelecomMessage(strconv.Itoa(pair.Telecom), 0)
-                encTelecoms = append(encTelecoms, []abstract.Point{K, C}...)
+                K, C, _ = p.ppcc.EncryptTelecomMessage(pair.Node, 0)
+                encPhones = append(encPhones, []abstract.Point{K, C}...)
+                telecoms  = append(telecoms, strconv.Itoa(pair.Telecom))
                 graph.MarkVisited(pair)
             }
         }
-        log.Lvl1("Found ", len(encPhones) / 2, " unvisited neighbors: ")
+        log.Lvl1("Found ", len(telecoms), " unvisited neighbors: ")
     }
 
-    err = p.SendTo(p.Agency, &Reply{encPhones, encTelecoms})
+    err = p.SendTo(p.Agency, &Reply{encQuery, encPhones, telecoms})
 
     if err != nil {
         log.Lvl1("ERROR sending to agency")

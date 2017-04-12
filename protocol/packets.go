@@ -23,8 +23,9 @@ type StructDone struct {
 }
 
 type Reply struct {
-    EncPhones   []abstract.Point
-    EncTelecoms []abstract.Point
+    EncQuery       []abstract.Point
+    EncPhones      []abstract.Point
+    Telecoms       []string
 }
 
 type StructReply struct {
@@ -33,12 +34,9 @@ type StructReply struct {
 }
 
 type AuthorityQuery struct {
-    Query   string
-    Telecom int
-    Depth   int
     EncQuery    []abstract.Point
-    EncTelecom  []abstract.Point
-    EncDepth    []abstract.Point
+    Telecom     int
+    Depth       int
 }
 
 type StructAuthorityQuery struct {
