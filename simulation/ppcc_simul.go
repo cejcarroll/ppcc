@@ -115,12 +115,17 @@ func (e *Simulation) Run(config *onet.SimulationConfig) error {
         rh.InitWarrant = warrant
 
 		go p.Start()
-        done := <-p.(*protocol.PPCC).ProtocolDone
+        done := <-rh.ProtocolDone
 		round.Record()
-        log.Lvl1("ProtocolDone:" , done, ", output list: ", rh.OutputList)
+
+        if done {
+            log.Lvl1("Terminated successfully, output list: ", rh.OutputList)
+        } else {
+            log.Lvl1("ERROR: ProtocolDone returned false")
+        }
     }
 
-    log.Lvl1("Exiting Run()")
+    log.Lvl3("Exiting Run()")
 	return nil
 }
 

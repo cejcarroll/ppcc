@@ -156,7 +156,7 @@ func (p *PPCC) Dispatch() error {
         }
 
         if p.NodeDone && p.IsRoot() {
-            log.Lvl1("Root is DONE")
+            log.Lvl3("Root is DONE")
             p.ProtocolDone <- true
 
             for _, tn := range p.Telecoms {
@@ -185,7 +185,7 @@ func (p *PPCC) handleInit (in *Init) error {
     if numGraphs < p.NumTelecoms {
         p.NumTelecoms = numGraphs
         p.Telecoms = p.Telecoms[0:numGraphs]
-        log.Lvl1("Truncated Telecoms to length: ", len(p.Telecoms))
+        log.Lvl3("Truncated Telecoms to length: ", len(p.Telecoms))
     }
 
     // Initialize output list for agency
@@ -227,14 +227,14 @@ func (p *PPCC) handleInit (in *Init) error {
 }
 
 func (p *PPCC) handleReply(in *Reply) error {
-    log.Lvl1("In HandleReply")
+    log.Lvl3("In HandleReply")
 
     if !p.IsRoot() {
         return fmt.Errorf("non-root received reply")
     }
 
     decryptedNode, _ := p.ppcc.DecryptTelecomMessage(in.EncQuery.K, in.EncQuery.C)
-    log.Lvl1("Decrypted node: ", decryptedNode)
+    log.Lvl3("Decrypted node: ", decryptedNode)
     p.OutputList[decryptedNode] = true
 
     p.OutstandingPackets--
@@ -312,7 +312,7 @@ func (p *PPCC) handleAuthorityQuery (in *AuthorityQuery) error {
 
     // Decrypt the message and reencrypt it under the agency's public key
     nodeQuery, _ := p.ppcc.DecryptTelecomMessage(in.EncQuery.K, in.EncQuery.C)
-    log.Lvl1("Node ", p.TelecomIdx, " handling query for ", nodeQuery)
+    log.Lvl3("Node ", p.TelecomIdx, " handling query for ", nodeQuery)
     K, C, _ := p.ppcc.EncryptTelecomMessage(nodeQuery, 0)
     encQuery := lib.Ciphertext{K, C}
 
@@ -333,7 +333,7 @@ func (p *PPCC) handleAuthorityQuery (in *AuthorityQuery) error {
                 graph.MarkVisited(pair)
             }
         }
-        log.Lvl1("Found ", len(telecoms), " unvisited neighbors: ")
+        log.Lvl3("Found ", len(telecoms), " unvisited neighbors: ")
     }
 
     // Send original query (encrypted with agency pubkey) and neighbors (under telecom pubkeys)
