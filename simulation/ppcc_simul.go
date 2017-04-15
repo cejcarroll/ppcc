@@ -69,11 +69,11 @@ func (e *Simulation) Run(config *onet.SimulationConfig) error {
         }
 
         graph0 := lib.NewGraph(nodeList0[:])
-        graph0.AddEdge(nodeList0[0], nodeList0[1])
-        graph0.AddEdge(nodeList0[0], nodeList0[2])
-        graph0.AddEdge(nodeList0[0], nodeList0[3])
-        graph0.AddEdge(nodeList0[0], nodeList0[4])
-        graph0.AddEdge(nodeList0[0], nodeList0[5])
+        graph0.AddEdge(nodeList0[0], nodeList0[1], 1)
+        graph0.AddEdge(nodeList0[0], nodeList0[2], 1)
+        graph0.AddEdge(nodeList0[0], nodeList0[3], 1)
+        graph0.AddEdge(nodeList0[0], nodeList0[4], 1)
+        graph0.AddEdge(nodeList0[0], nodeList0[5], 1)
 
         // Graph1
         nodeList1 := [5]lib.AgencyPair {
@@ -85,10 +85,10 @@ func (e *Simulation) Run(config *onet.SimulationConfig) error {
         }
 
         graph1 := lib.NewGraph(nodeList1[:])
-        graph1.AddEdge(nodeList1[0], nodeList1[1])
-        graph1.AddEdge(nodeList1[0], nodeList1[2])
-        graph1.AddEdge(nodeList1[0], nodeList1[3])
-        graph1.AddEdge(nodeList1[0], nodeList1[4])
+        graph1.AddEdge(nodeList1[0], nodeList1[1], 1)
+        graph1.AddEdge(nodeList1[0], nodeList1[2], 1)
+        graph1.AddEdge(nodeList1[0], nodeList1[3], 1)
+        graph1.AddEdge(nodeList1[0], nodeList1[4], 1)
 
         // Graph2
         nodeList2 := [3]lib.AgencyPair {
@@ -98,8 +98,8 @@ func (e *Simulation) Run(config *onet.SimulationConfig) error {
         }
 
         graph2 := lib.NewGraph(nodeList2[:])
-        graph2.AddEdge(nodeList2[0], nodeList2[1])
-        graph2.AddEdge(nodeList2[0], nodeList2[2])
+        graph2.AddEdge(nodeList2[0], nodeList2[1], 1)
+        graph2.AddEdge(nodeList2[0], nodeList2[2], 1)
 
         graphArr := [3]lib.TelecomGraph{*graph0, *graph1, *graph2}
         protocol.SetGraphs(graphArr[:])

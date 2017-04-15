@@ -38,10 +38,10 @@ func main() {
 
     //fmt.Println()
     fmt.Println("Adding Edges:")
-    myGraph.AddEdge(nodeList[0], nodeList[1])
-    myGraph.AddEdge(nodeList[1], nodeList[3])
-    myGraph.AddEdge(nodeList[1], nodeList[2])
-    myGraph.AddEdge(nodeList[5], nodeList[4])
+    myGraph.AddEdge(nodeList[0], nodeList[1], 1)
+    myGraph.AddEdge(nodeList[1], nodeList[3], 1)
+    myGraph.AddEdge(nodeList[1], nodeList[2], 1)
+    myGraph.AddEdge(nodeList[5], nodeList[4], 1)
 
     //fmt.Println(myGraph)
 

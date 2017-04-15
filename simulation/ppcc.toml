@@ -1,11 +1,9 @@
-Servers = 16
+Servers = 1
 Simulation = "PPCC"
-BF = 2
-Rounds = 10
-#SingleHost = true
+BF = 5
+Rounds = 1
+Faulty = 0
+
 
 Hosts
 6
-#7
-#15
-#31

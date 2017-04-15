@@ -5,11 +5,16 @@ type AgencyPair struct {
     Telecom     int
 }
 
+type Edge struct {
+    Pair    AgencyPair
+    Weight  int
+}
+
 type TelecomGraph struct {
     NumNodes    int
     Nodes       map[AgencyPair]bool
     Visited     map[AgencyPair]bool
-    Graph       map[AgencyPair][]AgencyPair
+    Graph       map[AgencyPair][]Edge
 }
 
 func NewGraph(nodeList []AgencyPair) *TelecomGraph {
@@ -22,7 +27,7 @@ func NewGraph(nodeList []AgencyPair) *TelecomGraph {
         NumNodes:   len(nodeList),
         Nodes:      contains,
         Visited:    make(map[AgencyPair]bool),
-        Graph:      make(map[AgencyPair][]AgencyPair),
+        Graph:      make(map[AgencyPair][]Edge),
     }
 }
 
@@ -40,24 +45,24 @@ func (g *TelecomGraph) MarkVisited (node AgencyPair) {
 
 func (g *TelecomGraph) ContainsEdge(node1 AgencyPair, node2 AgencyPair) bool {
     for _, neighbor := range g.Graph[node1] {
-        if neighbor == node2 {
+        if neighbor.Pair == node2 {
             return true
         }
     }
     return false
 }
 
-func (g *TelecomGraph) Neighbors(node AgencyPair) []AgencyPair {
+func (g *TelecomGraph) Neighbors(node AgencyPair) []Edge {
     return g.Graph[node]
 }
 
-func (g *TelecomGraph) AddEdge(node1 AgencyPair, node2 AgencyPair) {
+func (g *TelecomGraph) AddEdge(node1 AgencyPair, node2 AgencyPair, weight int) {
     if !g.ContainsNode(node1) || !g.ContainsNode(node2) {
         return
     }
 
-    g.Graph[node1] = append(g.Graph[node1], node2)
-    g.Graph[node2] = append(g.Graph[node2], node1)
+    g.Graph[node1] = append(g.Graph[node1], Edge{node2, weight})
+    g.Graph[node2] = append(g.Graph[node2], Edge{node1, weight})
 }
 
 func (g *TelecomGraph) AddNode(node AgencyPair) {

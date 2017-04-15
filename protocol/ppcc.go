@@ -325,7 +325,8 @@ func (p *PPCC) handleAuthorityQuery (in *AuthorityQuery) error {
     // Iterate over neighbors of the node, and create encrypted sets to send back to agency
     if in.Depth > 0 && graph.ContainsNode(query) {
         neighbors := graph.Neighbors(query)
-        for _, pair := range neighbors {
+        for _, edge := range neighbors {
+            pair := edge.Pair
             if !graph.HasVisited(pair) {
                 K, C, _ = p.ppcc.EncryptTelecomMessage(pair.Node, numAuthorities + pair.Telecom)
                 encPhones = append(encPhones, []abstract.Point{K, C}...)
