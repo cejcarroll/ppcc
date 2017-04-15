@@ -36,5 +36,5 @@ func ExampleSchnorr() {
     // 00000030  7f f2 7c 55 c5 d2 c6 70  51 89 40 cd 63 50 bf c6  |..|U...pQ.@.cP..|
     // Signature verified against correct message.
 
-	println("Schnorr signature verified correctly")
+    println("PASS: Schnorr test")
 }

@@ -24,6 +24,6 @@ func TestElgamal(t *testing.T) {
 	if string(mm) != string(m) {
 		panic("decryption produced wrong output: " + string(mm))
 	}
-	println("Decryption succeeded: " + string(mm))
+    println("PASS: El Gamal test")
 
 }
