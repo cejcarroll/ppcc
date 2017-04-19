@@ -54,55 +54,14 @@ func (e *Simulation) Run(config *onet.SimulationConfig) error {
 
         // Initialize Queue
         warrant := protocol.Warrant{"1234567890", 0, 3}
-        //warrant := lib.NewTriple("1234567890", 0, 3)
-        //queue := lib.NewQueue(initSize)
-        //queue.Push(warrant)
 
-        // Graph0
-        nodeList0 := [6]lib.AgencyPair {
-            lib.AgencyPair{"1234567890", 0},
-            lib.AgencyPair{"1234567891", 0},
-            lib.AgencyPair{"1234567892", 1},
-            lib.AgencyPair{"1234567893", 0},
-            lib.AgencyPair{"1234567894", 1},
-            lib.AgencyPair{"1234567895", 0},
-        }
+        // Read in graph files to use in simulation
+        graph0 := lib.ReadGraph("graph0.tgf")
+        graph1 := lib.ReadGraph("graph1.tgf")
+        graph2 := lib.ReadGraph("graph2.tgf")
 
-        graph0 := lib.NewGraph(nodeList0[:])
-        graph0.AddEdge(nodeList0[0], nodeList0[1], 1)
-        graph0.AddEdge(nodeList0[0], nodeList0[2], 1)
-        graph0.AddEdge(nodeList0[0], nodeList0[3], 1)
-        graph0.AddEdge(nodeList0[0], nodeList0[4], 1)
-        graph0.AddEdge(nodeList0[0], nodeList0[5], 1)
-
-        // Graph1
-        nodeList1 := [5]lib.AgencyPair {
-            lib.AgencyPair{"1234567896", 1},
-            lib.AgencyPair{"1234567892", 1},
-            lib.AgencyPair{"1234567897", 2},
-            lib.AgencyPair{"1234567894", 1},
-            lib.AgencyPair{"1234567898", 2},
-        }
-
-        graph1 := lib.NewGraph(nodeList1[:])
-        graph1.AddEdge(nodeList1[0], nodeList1[1], 1)
-        graph1.AddEdge(nodeList1[0], nodeList1[2], 1)
-        graph1.AddEdge(nodeList1[0], nodeList1[3], 1)
-        graph1.AddEdge(nodeList1[0], nodeList1[4], 1)
-
-        // Graph2
-        nodeList2 := [3]lib.AgencyPair {
-            lib.AgencyPair{"1234567899", 2},
-            lib.AgencyPair{"1234567897", 2},
-            lib.AgencyPair{"1234567898", 2},
-        }
-
-        graph2 := lib.NewGraph(nodeList2[:])
-        graph2.AddEdge(nodeList2[0], nodeList2[1], 1)
-        graph2.AddEdge(nodeList2[0], nodeList2[2], 1)
-
-        graphArr := [3]lib.TelecomGraph{*graph0, *graph1, *graph2}
-        protocol.SetGraphs(graphArr[:])
+        graphArr := []lib.TelecomGraph{*graph0, *graph1, *graph2}
+        protocol.SetGraphs(graphArr)
 
 		log.Lvl1("Starting round", round)
 		round := monitor.NewTimeMeasure("round")

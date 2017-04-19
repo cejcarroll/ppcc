@@ -44,7 +44,7 @@ func TestTelecomGraph(t *testing.T) {
 }
 
 func TestTGFReader(t *testing.T) {
-    graph, _ := readGraph("tgf_example.tgf")
+    graph, _ := ReadGraph("tgf_example.tgf")
 
     nodeList := [6]AgencyPair {
         AgencyPair{"1234567890", 0},

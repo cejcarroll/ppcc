@@ -90,7 +90,7 @@ func (g *TelecomGraph) AddNode(node AgencyPair) {
     g.Nodes[node] = true
 }
 
-func readGraph (path string) (*TelecomGraph, error) {
+func ReadGraph (path string) (*TelecomGraph, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		fmt.Printf("%v\n", err)
