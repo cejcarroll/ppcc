@@ -56,12 +56,15 @@ func (e *Simulation) Run(config *onet.SimulationConfig) error {
         warrant := protocol.Warrant{"1234567890", 0, 3}
 
         // Read in graph files to use in simulation
-        graph0 := lib.ReadGraph("graph0.tgf")
-        graph1 := lib.ReadGraph("graph1.tgf")
-        graph2 := lib.ReadGraph("graph2.tgf")
+        graph0, err0 := lib.ReadGraph("../graph0.tgf")
+        if err0 != nil { return err0 }
+        graph1, err1 := lib.ReadGraph("../graph1.tgf")
+        if err1 != nil { return err1 }
+        graph2, err2 := lib.ReadGraph("../graph2.tgf")
+        if err2 != nil { return err2 }
 
-        graphArr := []lib.TelecomGraph{*graph0, *graph1, *graph2}
-        protocol.SetGraphs(graphArr)
+        graphArr := [3]lib.TelecomGraph{*graph0, *graph1, *graph2}
+        protocol.SetGraphs(graphArr[:])
 
 		log.Lvl1("Starting round", round)
 		round := monitor.NewTimeMeasure("round")
